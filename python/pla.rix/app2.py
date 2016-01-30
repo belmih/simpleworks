@@ -77,6 +77,7 @@ def parse_xml(xmlfile, lock):
     for obj in root.findall('./objects/object'):
         for key, value in obj.items():
             write_csv(CSV_ID_OBJECT, ['id', 'object_name'], {'id': id, 'object_name': value}, lock)
+    os.remove(xmlfile)
 
             
 def remove_unzip_folder():
