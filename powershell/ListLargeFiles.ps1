@@ -60,5 +60,5 @@ foreach ($file in $largefiles)
 
 if ($msg)
 {
-    sendEmail 'admin@mail.local' "Èíôîðìàöèÿ îò $compname" "Ðåçóëüòàò âûïîëíåíèÿ $scriptname : Ñïèñîê ôàéëîâ $extension â $targetFolder ðàçìåðîì áîëüøå $sizeFile`n`n$msg"
+    sendEmail 'admin@mail.local' "Информация от $compname" "Результат выполнения $scriptname : Список файлов $extension в $targetFolder размером больше $sizeFile`n`n$msg"
 }
