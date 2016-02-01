@@ -1,0 +1,41 @@
+# DeleteOldFiles
+# Example: DeleteOldFiles.ps1 C:\Folder\ 30 *.txt,*.bmp
+
+Param (
+    [parameter(Mandatory=$true)]
+    [alias("f")]
+    $targetFolder,
+    [parameter(Mandatory=$true)]
+    [alias("d")]
+    $days,
+	[parameter(Mandatory=$true)]
+    [alias("e")]
+    $extension)
+
+cls	
+
+$scriptName = $MyInvocation.MyCommand.Name
+$logfilename = "$scriptname.log"
+
+Function to_log($message)
+{   
+    foreach ($strmsg in $message)
+    {
+        $dt = get-date -format 'yyyy.MM.dd HH:mm:ss'
+        $tmp = "[$dt] $strmsg"
+        write-host $tmp 
+        $tmp  | Out-File -FilePath $logfilename -Append -encoding default
+    }
+}
+
+if (test-Path ($targetFolder))
+{
+	$files = Get-Childitem -Path $targetFolder -Recurse -Force -include $extension `
+	| Where-Object {!$_.PSIsContainer -and $_.LastWriteTime -lt (Get-Date).AddDays(-$days)}
+		
+	if ($files)
+	{   
+        to_log($files)
+	    $files | Remove-Item -force
+	}
+}
