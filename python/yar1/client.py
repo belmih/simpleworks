@@ -11,9 +11,7 @@ import logging
 
 IP_ADDRESS = "127.0.0.1"
 SMTP_PORT = 25
-MIN_RANDOM_LENGTH = 6
-MAX_RANDOM_LENGTH = 12
-COUNT_THREADS = 16
+COUNT_THREADS = 8
 
 abspath = os.path.abspath(__file__)
 workdir = os.path.dirname(abspath)
@@ -35,9 +33,9 @@ class EmailSender:
             self.__from_addr = self.get_random_addr(from_d)
             self.__to_addr   = self.get_random_addr(to_d)
           
-        def get_random_string(self):
+        def get_random_string(self, minlen=6, maxlen=12):
             random.seed()
-            len = random.randint(MIN_RANDOM_LENGTH,MAX_RANDOM_LENGTH)
+            len = random.randint(minlen,maxlen)
             s1 = random.choice(string.ascii_letters)
             randomstring = s1 + ''.join([random.choice(string.ascii_letters + string.digits) for n in range(len-1)])
             return randomstring
@@ -48,49 +46,59 @@ class EmailSender:
             return randomaddr.lower()
            
         def get_data(self):
-            msg = MIMEText(self.get_random_string())
+            msg = MIMEText(self.get_random_string(6, 128))
             msg['To'] = email.utils.formataddr(('Recipient', self.__to_addr))
             msg['From'] = email.utils.formataddr(('Author', self.__from_addr))
             msg['Subject'] = self.get_random_string()
             return (self.__from_addr, self.__to_addr, msg.as_string())
-
+    
+    
+    def start_thread(self):
+        for i in range(COUNT_THREADS):
+            t = threading.Thread(target=self.send_email)
+            t.daemon = True
+            t.start()
+            self.threads.append(t)
+    
+    
     def send_email(self):
+        logging.debug("in thread")
         while self.run:
-            time_wait = random.randint(1,10)/10
-            time.sleep(time_wait)
+            time.sleep(.1)
             try:
+                logging.debug("send mail")
                 server = smtplib.SMTP(IP_ADDRESS, SMTP_PORT)
-                time.sleep(5)
-                
                 email = self.Email(self.from_domain,self.to_domain)
                 from_addr, to_addr, msg = email.get_data()
-                self.lock.acquire()
                 server.sendmail(from_addr, to_addr, msg)
+                self.lock.acquire()
                 self.email_count += 1
-                server.quit()
-            except smtplib.SMTPException as e:
-                logging.error(e)
-            finally:
                 self.lock.release()
+                server.quit()
+            except: 
+                e = sys.exc_info()[0]
+                logging.error("Error %s" % e)
+                print "Error %s" % e
+           
 
     def start(self):
         if self.run:
-            print "The client is already running"
+            print "client is already running"
         else:
+            self.start_thread()
             self.run = True
-            for i in range(COUNT_THREADS):
-                t = threading.Thread(target=self.send_email)
-                t.daemon = True                
-                t.start()
-                self.threads.append(t)
-
+            print "\nclient is running"
+        
+        
     def stop(self):
         self.run = False
         for t in self.threads:
             t.join()
+        print "\nclient stopped"
 
+            
     def get_statistic(self):
-        print "emails sent: %s" % self.email_count
+        print "\nemails sent: %s" % self.email_count
 
 
 def configure_logging():
@@ -99,11 +107,11 @@ def configure_logging():
                         datefmt='%H:%M:%S',
                         filename='smtpclient.log',
                         filemode='a')
-    console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(levelname)s: %(message)s')
-    console.setFormatter(formatter)
-    logging.getLogger('').addHandler(console)
+    # console = logging.StreamHandler()
+    # console.setLevel(logging.INFO)
+    # formatter = logging.Formatter('%(levelname)s: %(message)s')
+    # console.setFormatter(formatter)
+    # logging.getLogger('').addHandler(console)
 
 def get_args():
     parser = argparse.ArgumentParser(description='email sender')
@@ -113,9 +121,10 @@ def get_args():
     return (args.from_domain, args.to_domain)
 
 def main():
-    # from_domain, to_domain = get_args()
+    from_domain, to_domain = get_args()
     print "Hello! Use: start|stop|restart|statistic|exit"
-    sender = EmailSender("fromdomain.com", "todomain.ru")
+    sender = EmailSender(from_domain, to_domain)
+    sender.start()
     try:
         while True:
             command = str(raw_input('smtp client:'))
@@ -141,7 +150,6 @@ def main():
         sender.stop()
         print "Bye!"
         sys.exit(1)
-
 
 
 if __name__ == '__main__':
