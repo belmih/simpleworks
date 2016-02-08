@@ -1,4 +1,4 @@
-#!C:/python27/python.exe
+#!/usr/bin/python
 
 import asyncore
 from smtpd import SMTPServer
@@ -33,6 +33,8 @@ class CustomSMTPServer(SMTPServer):
                 spamwriter = csv.writer(csvfile, dialect='excel', lineterminator='\n', delimiter=';')
                 spamwriter.writerow(row)
     
+        def handle_accept(self):
+            self.close()
     
     csv_file = CSV_file(CSV_FILE)    
     email_count = 0
@@ -65,7 +67,8 @@ class CustomSMTPServer(SMTPServer):
         m = re.search('\n\n(.+)$', data, re.I | re.S)
         if m:
             body = m.group(1)
-
+            
+        
         self.csv_file.write_row([ip_addr, date, from_addr, to_addr, subject, body])
         self.email_count += 1
         return
@@ -75,33 +78,39 @@ class MyReceiver(object):
 
     def __init__(self):
         self.run = False
-        
+        #self.thread = None
+
     def start(self):
         """ Start the listening service """
         if self.run:
             print "The server is already running"
             return
-        #create an instance of the SMTP server, derived from  asyncore.dispatcher
+        # create an instance of the SMTP server, derived from  asyncore.dispatcher
         self.smtp = CustomSMTPServer((IP_ADDRESS, SMTP_PORT), None)
-        # and also start the asyncore loop, listening for SMTP connection, within a thread
+        # start the asyncore loop, listening for SMTP connection, within a thread
         self.thread = threading.Thread(target=asyncore.loop, kwargs={'timeout': 1})
-        self.thread.daemon = True
+        #self.thread.daemon = True
         self.thread.start()
         self.run = True
+        print "\nserver is running"
 
     def stop(self):
         """ Stop listening now to port """
+        logging.debug("stop self.run = %s" % self.run)
         if self.run:
+            self.run = False
             # close the SMTPserver to ensure no channels connect to asyncore
             self.smtp.close()
+            logging.debug("close")
             # now it is save to wait for the thread to finish, i.e. for asyncore.loop() to exit
             self.thread.join()
-            self.run = False
-            self.smtp = None
+            logging.debug("join")
+
+            
 
     def get_statistic(self):
         """ displays the number of received emails """
-        print "receive e-mails: %s" % self.smtp.email_count
+        print "receive emails: %s" % self.smtp.email_count
         
 
 def configure_logging():
@@ -110,11 +119,12 @@ def configure_logging():
                         datefmt='%H:%M:%S',
                         filename='smtpserver.log',
                         filemode='a')
-    console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(levelname)s: %(message)s')
-    console.setFormatter(formatter)
-    logging.getLogger('').addHandler(console)
+    # console = logging.StreamHandler()
+    # console.setLevel(logging.INFO)
+    # formatter = logging.Formatter('%(levelname)s: %(message)s')
+    # console.setFormatter(formatter)
+    # logging.getLogger('').addHandler(console)
+
     
 def main():
     print "Hello! Use: start|stop|restart|statistic|exit"
